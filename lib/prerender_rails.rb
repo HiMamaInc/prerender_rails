@@ -183,6 +183,7 @@ module Rack
         req.basic_auth(ENV['PRERENDER_USERNAME'], ENV['PRERENDER_PASSWORD']) if @options[:basic_auth]
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true if url.scheme == 'https'
+        http.read_timeout = @options[:read_timeout] if @options[:read_timeout]
         response = http.request(req)
         if response['Content-Encoding'] == 'gzip'
           response.body = ActiveSupport::Gzip.decompress(response.body)
@@ -203,7 +204,13 @@ module Rack
         hop_by_hop_headers.each { |h| response.delete(h) }
 
         response
-      rescue
+      rescue Timeout::Error => e
+        if @options[:read_timeout]
+          error_type = '503 Service Unavailable'
+          error_msg = "ERROR: timed out while trying to connect. #{e.message}"
+          raise Timeout::Error.new(error_type), error_msg
+        end
+      rescue StandardError
         nil
       end
     end
