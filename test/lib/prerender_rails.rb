@@ -102,6 +102,18 @@ describe Rack::Prerender do
   end
 
 
+  it 'should return a timeout error to the crawler if the request takes longer than the read_timeout argument' do
+    request = Rack::MockRequest.env_for '/', 'HTTP_USER_AGENT' => bot
+    stub_request(:get, @prerender.build_api_url(request))
+      .with(headers: { 'User-Agent': bot })
+      .to_return(body: '503 Service Unavailable', status: 503)
+    response = Rack::Prerender.new(@app, read_timeout: 22).call(request)
+
+    assert_equal response[0], 503
+    assert_equal response[2], ['503 Service Unavailable']
+  end
+
+
   it "should continue to app routes if the url is part of the regex specific blacklist" do
     request = Rack::MockRequest.env_for "/search/things/123/page", "HTTP_USER_AGENT" => bot
     response = Rack::Prerender.new(@app, blacklist: ['^/search', '/help']).call(request)
