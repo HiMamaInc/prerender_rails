@@ -106,11 +106,13 @@ describe Rack::Prerender do
     request = Rack::MockRequest.env_for '/', 'HTTP_USER_AGENT' => bot
     stub_request(:get, @prerender.build_api_url(request))
       .with(headers: { 'User-Agent': bot })
-      .to_return(body: '503 Service Unavailable', status: 503)
-    response = Rack::Prerender.new(@app, read_timeout: 22).call(request)
+      .to_raise(Timeout::Error)
 
-    assert_equal response[0], 503
-    assert_equal response[2], ['503 Service Unavailable']
+    err = assert_raises Timeout::Error do
+      Rack::Prerender.new(@app, read_timeout: 22).call(request)
+    end
+
+    assert_equal err.message, '503 Service Unavailable'
   end
 
 
