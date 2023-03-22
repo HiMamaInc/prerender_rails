@@ -204,10 +204,10 @@ module Rack
         hop_by_hop_headers.each { |h| response.delete(h) }
 
         response
-      rescue Timeout::Error => e
+      rescue Timeout::Error
         if @options[:read_timeout]
           error_type = '503 Service Unavailable'
-          error_msg = "ERROR: timed out while trying to connect. #{e.message}"
+          error_msg = 'ERROR: timed out while trying to connect.'
           raise Timeout::Error.new(error_type), error_msg
         end
       rescue StandardError
