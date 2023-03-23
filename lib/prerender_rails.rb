@@ -111,12 +111,19 @@ module Rack
           return cached_response.finish
         end
 
-        prerendered_response = get_prerendered_page_response(env)
+        begin
+          prerendered_response = get_prerendered_page_response(env)
 
-        if prerendered_response
-          response = build_rack_response_from_prerender(prerendered_response)
-          after_render(env, prerendered_response)
-          return response.finish
+          if prerendered_response
+            response = build_rack_response_from_prerender(prerendered_response)
+            after_render(env, prerendered_response)
+            return response.finish
+          end
+        rescue Timeout::Error
+          if @options[:read_timeout]
+            response = Rack::Response.new(nil, 503, nil)
+            return response.finish
+          end
         end
       end
 
@@ -204,13 +211,7 @@ module Rack
         hop_by_hop_headers.each { |h| response.delete(h) }
 
         response
-      rescue Timeout::Error
-        if @options[:read_timeout]
-          error_type = '503 Service Unavailable'
-          error_msg = 'ERROR: timed out while trying to connect.'
-          raise Timeout::Error.new(error_type), error_msg
-        end
-      rescue StandardError
+      rescue
         nil
       end
     end
