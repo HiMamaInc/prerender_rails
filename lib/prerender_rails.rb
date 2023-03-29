@@ -111,12 +111,19 @@ module Rack
           return cached_response.finish
         end
 
-        prerendered_response = get_prerendered_page_response(env)
+        begin
+          prerendered_response = get_prerendered_page_response(env)
 
-        if prerendered_response
-          response = build_rack_response_from_prerender(prerendered_response)
-          after_render(env, prerendered_response)
-          return response.finish
+          if prerendered_response
+            response = build_rack_response_from_prerender(prerendered_response)
+            after_render(env, prerendered_response)
+            return response.finish
+          end
+        rescue Timeout::Error
+          if @options[:read_timeout]
+            response = Rack::Response.new(nil, 503, nil)
+            return response.finish
+          end
         end
       end
 
@@ -183,6 +190,7 @@ module Rack
         req.basic_auth(ENV['PRERENDER_USERNAME'], ENV['PRERENDER_PASSWORD']) if @options[:basic_auth]
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true if url.scheme == 'https'
+        http.read_timeout = @options[:read_timeout] if @options[:read_timeout]
         response = http.request(req)
         if response['Content-Encoding'] == 'gzip'
           response.body = ActiveSupport::Gzip.decompress(response.body)
